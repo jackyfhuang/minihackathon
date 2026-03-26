@@ -1,0 +1,86 @@
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const PORT = process.env.PORT || 3000;
+
+function routePath(url) {
+    const q = url.indexOf('?');
+    return q === -1 ? url : url.slice(0, q);
+}
+
+const server = http.createServer((req, res) => {
+    const pathname = routePath(req.url);
+
+    if ((pathname === '/' || pathname === '/client.html') && req.method === 'GET') {
+        const htmlPath = path.join(__dirname, 'client.html');
+        fs.readFile(htmlPath, 'utf8', (err, data) => {
+            if (err) {
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end('Could not load client.html');
+                return;
+            }
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(data);
+        });
+        return;
+    }
+
+    // Check login status
+    if (pathname === '/httponly-cookie/check' && req.method === 'GET') {
+        const cookie = req.headers.cookie;
+        if (cookie && cookie.includes('token=R99R')) {
+            res.writeHead(200);
+            res.end();
+        } else {
+            res.writeHead(401);
+            res.end();
+        }
+    }
+    // Login
+    else if (pathname === '/httponly-cookie/login' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            const { username, password } = JSON.parse(body);
+            if (username === 'admin' && password === '4444') {
+                res.writeHead(200, {
+                    'Set-Cookie': 'token=R99R; HttpOnly; Path=/; SameSite=None; Secure',
+                    'Content-Type': 'application/json'
+                });
+                res.end(JSON.stringify({ message: 'Logged in' }));
+                console.log("logged in!")
+            } else {
+                res.writeHead(401);
+                res.end();
+            }
+        });
+    }
+    // Get treasure
+    else if (pathname === '/httponly-cookie/something' && req.method === 'GET') {
+        const cookie = req.headers.cookie;
+        if (cookie && cookie.includes('token=R99R')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ message: 'GOLDEN LAPTOP!' }));
+        } else {
+            res.writeHead(401);
+            res.end();
+        }
+    }
+    // Logout
+    else if (pathname === '/httponly-cookie/logout' && req.method === 'POST') {
+        res.writeHead(200, {
+            'Set-Cookie': 'token=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure'
+        });
+        res.end();
+    }
+    else {
+        res.writeHead(404);
+        res.end();
+    }
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server listening on port ${PORT}`);
+});
+//DeepSeek Was used for this
